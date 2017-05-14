@@ -42,7 +42,7 @@ public class Fragment2 extends Fragment {
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        RelativeLayout layout = (RelativeLayout)inflater.inflate(R.layout.fragment_fragment2, container);
+        RelativeLayout layout = (RelativeLayout)inflater.inflate(R.layout.fragment_fragment2, container, false);
         return layout;
     }
 }
