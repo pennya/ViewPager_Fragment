@@ -22,14 +22,21 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.places.Place;
+import com.google.android.gms.location.places.Places;
+import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
+import com.google.android.gms.location.places.ui.PlaceSelectionListener;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
@@ -96,6 +103,7 @@ public class Fragment1 extends Fragment
     private GoogleApiClient googleApiClient = null;
     private Marker currentMarker = null;
 
+
     public Fragment1()
     {
         // required
@@ -142,8 +150,33 @@ public class Fragment1 extends Fragment
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View layout = inflater.inflate(R.layout.fragment_fragment1, container, false);
 
+        /*btn_search = (Button)layout.findViewById(R.id.btn_search);
+        et_lat = (EditText)layout.findViewById(R.id.et_lat);
+        et_lng = (EditText)layout.findViewById(R.id.et_lng);
+
+        btn_search.setOnClickListener(btn_listener);*/
+
         mapView = (MapView)layout.findViewById(R.id.map);
         mapView.getMapAsync(this);
+
+        PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment)
+                getActivity().getFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
+
+        autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+            @Override
+            public void onPlaceSelected(Place place) {
+                Location location = new Location("");
+                location.setLatitude(place.getLatLng().latitude);
+                location.setLongitude(place.getLatLng().longitude);
+
+                setCurrentLocation(location, place.getName().toString(), place.getAddress().toString());
+            }
+
+            @Override
+            public void onError(Status status) {
+                Log.i(TAG, "An error occurred: " + status);
+            }
+        });
 
         return layout;
     }
@@ -276,6 +309,9 @@ public class Fragment1 extends Fragment
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .addApi(LocationServices.API)
+                .addApi(Places.GEO_DATA_API)
+                .addApi(Places.PLACE_DETECTION_API)
+                .enableAutoManage(getActivity(), this)
                 .build();
         googleApiClient.connect();
     }
@@ -347,7 +383,7 @@ public class Fragment1 extends Fragment
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        Location location = null;
+        Location location = new Location("");
         location.setLatitude(DEFAULT_LOCATION.latitude);
         location.setLongitude((DEFAULT_LOCATION.longitude));
 
