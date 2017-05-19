@@ -29,11 +29,15 @@ import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.places.Place;
+import com.google.android.gms.location.places.PlaceLikelihood;
+import com.google.android.gms.location.places.PlaceLikelihoodBuffer;
 import com.google.android.gms.location.places.Places;
 import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
 import com.google.android.gms.location.places.ui.PlaceSelectionListener;
@@ -95,14 +99,19 @@ public class Fragment1 extends Fragment
     private static final String TAG = "googlemap_example";
     private static final int GPS_ENABLE_REQUEST_CODE = 2001;
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 2002;
-    private static final int UPDATE_INTERVAL_MS = 1000;
-    private static final int FASTEST_UPDATE_INTERVAL_MS = 1000;
+    private static final int UPDATE_INTERVAL_MS = 15000;
+    private static final int FASTEST_UPDATE_INTERVAL_MS = 15000;
 
     private GoogleMap googleMap = null;
     private MapView mapView = null;
     private GoogleApiClient googleApiClient = null;
     private Marker currentMarker = null;
 
+    private final static int MAXENTRIES = 5;
+    private String[] LikelyPlaceNames = null;
+    private String[] LikelyAddresses = null;
+    private String[] LikelyAttributions = null;
+    private LatLng[] LikelyLatLngs = null;
 
     public Fragment1()
     {
@@ -149,12 +158,6 @@ public class Fragment1 extends Fragment
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View layout = inflater.inflate(R.layout.fragment_fragment1, container, false);
-
-        /*btn_search = (Button)layout.findViewById(R.id.btn_search);
-        et_lat = (EditText)layout.findViewById(R.id.et_lat);
-        et_lng = (EditText)layout.findViewById(R.id.et_lng);
-
-        btn_search.setOnClickListener(btn_listener);*/
 
         mapView = (MapView)layout.findViewById(R.id.map);
         mapView.getMapAsync(this);
@@ -393,38 +396,45 @@ public class Fragment1 extends Fragment
 
     @Override
     public void onLocationChanged(Location location) {
-        String markerTitle = getCurrentAddress(location);
-        String markerSnippet = "위도:" + String.valueOf(location.getLatitude())
-                + " 경도:" + String.valueOf(location.getLongitude());
-
-        //현재 위치에 마커 생성
-        setCurrentLocation(location, markerTitle, markerSnippet);
+        Log.i(TAG, "onLocationChanged call..");
+        searchCurrentPlaces();
     }
 
-    private String getCurrentAddress(Location location) {
-        Geocoder geocoder = new Geocoder(getActivity(), Locale.getDefault());
+    private void searchCurrentPlaces() {
+        @SuppressWarnings("MissingPermission")
+        PendingResult<PlaceLikelihoodBuffer> result = Places.PlaceDetectionApi
+                .getCurrentPlace(googleApiClient, null);
+        result.setResultCallback(new ResultCallback<PlaceLikelihoodBuffer>(){
 
-        List<Address> addresses;
+            @Override
+            public void onResult(@NonNull PlaceLikelihoodBuffer placeLikelihoods) {
+                int i = 0;
+                LikelyPlaceNames = new String[MAXENTRIES];
+                LikelyAddresses = new String[MAXENTRIES];
+                LikelyAttributions = new String[MAXENTRIES];
+                LikelyLatLngs = new LatLng[MAXENTRIES];
 
-        try {
-            addresses = geocoder.getFromLocation(
-                    location.getLatitude(),
-                    location.getLongitude(),
-                    1);
-        } catch ( IOException ioException) {
-            Toast.makeText(getActivity(), "지오코더 서비스 사용불가", Toast.LENGTH_LONG).show();
-            return "지오코더 서비스 사용불가";
-        } catch ( IllegalArgumentException illegalArgumentException) {
-            Toast.makeText(getActivity(), "잘못된 GPS 좌표", Toast.LENGTH_LONG).show();
-            return "잘못된 GPS 좌표";
-        }
+                for(PlaceLikelihood placeLikelihood : placeLikelihoods) {
+                    LikelyPlaceNames[i] = (String) placeLikelihood.getPlace().getName();
+                    LikelyAddresses[i] = (String) placeLikelihood.getPlace().getAddress();
+                    LikelyAttributions[i] = (String) placeLikelihood.getPlace().getAttributions();
+                    LikelyLatLngs[i] = placeLikelihood.getPlace().getLatLng();
 
-        if ( addresses == null || addresses.size() == 0){
-            Toast.makeText(getActivity(), "주소 미발견", Toast.LENGTH_LONG).show();
-            return "주소 미발견";
-        } else {
-            Address address = addresses.get(0);
-            return address.getAddressLine(0).toString();
-        }
+                    i++;
+                    if(i > MAXENTRIES - 1 ) {
+                        break;
+                    }
+                }
+
+                placeLikelihoods.release();
+
+                Location location = new Location("");
+                location.setLatitude(LikelyLatLngs[0].latitude);
+                location.setLongitude(LikelyLatLngs[0].longitude);
+
+                setCurrentLocation(location, LikelyPlaceNames[0], LikelyAddresses[0]);
+            }
+        });
+
     }
 }
